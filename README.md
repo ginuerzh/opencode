@@ -110,6 +110,13 @@ docker run -it --rm --privileged \
   no init system, so the daemon would never start by itself. The entrypoint
   therefore starts `dockerd` whenever a `dockerd` binary is present.
   Set `ENABLE_DOCKER=false` to opt out.
+- A container is usually killed without letting the daemon shut down, so the
+  previous `containerd` can still hold its bolt lock on the next start and make
+  it time out. The entrypoint retries up to 3 times, clearing leftover
+  `dockerd`/`containerd` processes and stale sockets in between.
+- `nftables` is optional but recommended: without it dockerd logs
+  `nft: executable file not found` when clearing rules (the iptables backend is
+  still used, so networking works either way).
 - Images/containers live in `${DOCKER_DATA_ROOT:-$HOME/.local/share/docker}`.
   Mount `/root` as a volume to keep them across restarts.
 - The data-root must not be the container's own overlay rootfs: nested `overlay`
