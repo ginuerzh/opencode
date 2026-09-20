@@ -20,12 +20,24 @@ as_root() {
 
 if [ -n "${INSTALL_PACKAGES:-}" ]; then
   echo "[entrypoint] installing apt packages: ${INSTALL_PACKAGES}"
-  pkgs="$(echo "${INSTALL_PACKAGES}" | tr '|' ' ')"
   export DEBIAN_FRONTEND=noninteractive
-  # shellcheck disable=SC2086
-  as_root apt-get update
-  # shellcheck disable=SC2086
-  as_root apt-get install -y --no-install-recommends ${pkgs}
+  pkgs="$(echo "${INSTALL_PACKAGES}" | tr '|' ' ')"
+  # Mirrors intermittently return 5xx/timeouts; retry a few times, but never
+  # block container startup on it.
+  i=0
+  while :; do
+    i=$((i + 1))
+    # shellcheck disable=SC2086
+    if as_root apt-get update && as_root apt-get install -y --no-install-recommends ${pkgs}; then
+      break
+    fi
+    if [ "$i" -ge 5 ]; then
+      echo "[entrypoint] WARNING: apt install failed after ${i} attempts; continuing" >&2
+      break
+    fi
+    echo "[entrypoint] apt attempt ${i} failed, retrying..." >&2
+    sleep 5
+  done
   as_root rm -rf /var/lib/apt/lists/*
 fi
 
