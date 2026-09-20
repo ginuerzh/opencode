@@ -11,7 +11,7 @@ error: Failed to open library "/tmp/....so": Error relocating ...: gnu_get_libc_
 
 `gcompat` does not provide complete symbol coverage, so the fix is a glibc base
 image. This repo builds exactly that: the official Dockerfile with
-`alpine → ubuntu:24.04` and `cli-linux-x64-baseline-musl → cli-linux-x64-baseline`.
+`alpine → ubuntu:26.04` and `cli-linux-x64-baseline-musl → cli-linux-x64-baseline`.
 
 ## Image
 
@@ -45,7 +45,7 @@ docker run -it --rm \
 
 | | official | this image |
 |---|---|---|
-| base | `alpine` | `ubuntu:24.04` |
+| base | `alpine` | `ubuntu:26.04` |
 | binary | `cli-linux-x64-baseline-musl` | `cli-linux-x64-baseline` (glibc) |
 | runtime deps | `libgcc libstdc++ ripgrep` | `libgcc-s1 libstdc++6 ripgrep` |
 

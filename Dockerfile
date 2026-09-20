@@ -5,7 +5,7 @@
 # Mirrors the official image's Dockerfile (anomalyco/opencode,
 # packages/cli/Dockerfile) with the two changes needed for glibc:
 #
-#   base:    alpine                       -> ubuntu:24.04
+#   base:    alpine                       -> ubuntu:26.04
 #   binary:  cli-linux-x64-baseline-musl  -> cli-linux-x64[-baseline]
 #
 # Rationale: the official image is musl-only, and glibc-only native addons
@@ -18,7 +18,7 @@
 # --- stage 1: fetch the prebuilt glibc binary -------------------------------
 # Fetch on the *build* platform (no emulation) and download the binary for
 # TARGETARCH; nothing is executed here.
-FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS fetch
+FROM --platform=$BUILDPLATFORM ubuntu:26.04 AS fetch
 
 ARG TARGETARCH=amd64
 ARG OPENCODE_VERSION=2.0.9
@@ -52,7 +52,7 @@ RUN set -eux; \
     test "$(stat -c%s /out/opencode)" -gt 40000000
 
 # --- stage 2: runtime -------------------------------------------------------
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:26.04 AS runtime
 
 ARG OPENCODE_VERSION=2.0.9
 # Kept from the official image.
@@ -82,7 +82,7 @@ LABEL org.opencontainers.image.title="opencode" \
       org.opencontainers.image.description="opencode CLI on Ubuntu (glibc)" \
       org.opencontainers.image.version="${OPENCODE_VERSION}" \
       org.opencontainers.image.source="https://github.com/ginuerzh/opencode" \
-      org.opencontainers.image.base.name="ubuntu:24.04"
+      org.opencontainers.image.base.name="ubuntu:26.04"
 
 # Same entrypoint shape as the official image.
 ENTRYPOINT ["opencode"]
