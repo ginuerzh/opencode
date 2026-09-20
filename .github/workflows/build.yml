@@ -1,0 +1,83 @@
+name: Build and push Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      opencode_version:
+        description: "opencode version to build (default: latest @opencode/cli)"
+        required: false
+        default: ""
+  schedule:
+    # Daily at 03:00 UTC — rebuild when upstream publishes a new version.
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ginuerzh/opencode
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve opencode version
+        id: ver
+        run: |
+          set -euo pipefail
+          v="${{ github.event.inputs.opencode_version || '' }}"
+          # On a vX.Y.Z tag, build exactly that version.
+          if [ -z "$v" ] && [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            v="${GITHUB_REF_NAME#v}"
+          fi
+          # Otherwise use the latest published @opencode/cli.
+          if [ -z "$v" ]; then
+            v="$(npm view @opencode/cli version)"
+          fi
+          echo "opencode_version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved opencode version: $v"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.opencode_version }}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            OPENCODE_VERSION=${{ steps.ver.outputs.opencode_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
