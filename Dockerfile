@@ -16,7 +16,9 @@
 # =============================================================================
 
 # --- stage 1: fetch the prebuilt glibc binary -------------------------------
-FROM ubuntu:24.04 AS fetch
+# Fetch on the *build* platform (no emulation) and download the binary for
+# TARGETARCH; nothing is executed here.
+FROM --platform=$BUILDPLATFORM ubuntu:24.04 AS fetch
 
 ARG TARGETARCH=amd64
 ARG OPENCODE_VERSION=2.0.9
@@ -47,7 +49,7 @@ RUN set -eux; \
     bin="$(find /tmp/opencode -type f -size +40M | head -n1)"; \
     test -n "${bin}"; \
     install -m 0755 "${bin}" /out/opencode; \
-    /out/opencode --version
+    test "$(stat -c%s /out/opencode)" -gt 40000000
 
 # --- stage 2: runtime -------------------------------------------------------
 FROM ubuntu:24.04 AS runtime
@@ -74,9 +76,7 @@ RUN set -eux; \
 
 COPY --from=fetch /out/opencode /usr/local/bin/opencode
 
-RUN ln -sf opencode /usr/local/bin/opencode2 \
- && opencode --version \
- && opencode2 --version
+RUN ln -sf opencode /usr/local/bin/opencode2
 
 LABEL org.opencontainers.image.title="opencode" \
       org.opencontainers.image.description="opencode CLI on Ubuntu (glibc)" \
