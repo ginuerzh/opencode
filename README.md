@@ -72,6 +72,23 @@ set the package visibility to public in the package settings for anonymous pulls
 gh workflow run build.yml -f opencode_version=2.0.9
 ```
 
+## Adding packages at runtime
+
+In the spirit of LinuxServer.io's `universal-package-install` mod:
+
+```sh
+docker run -it --rm \
+  -e INSTALL_PACKAGES="tcpdump|netcat-openbsd" \
+  ghcr.io/ginuerzh/opencode:latest
+```
+
+- `INSTALL_PACKAGES` — apt packages, separated by `|` or spaces; installed on
+  every container start, so they are **not** persisted in the image layer.
+- `INSTALL_PACKAGES_GO` — `go install` specs, space separated (needs a Go
+  toolchain in the image).
+
+For tools you always need, bake them into a downstream image instead.
+
 ## Notes
 
 - The `baseline` x64 build avoids AVX2, matching upstream's default. Set

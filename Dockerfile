@@ -75,6 +75,8 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=fetch /out/opencode /usr/local/bin/opencode
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
 
 RUN ln -sf opencode /usr/local/bin/opencode2
 
@@ -84,5 +86,7 @@ LABEL org.opencontainers.image.title="opencode" \
       org.opencontainers.image.source="https://github.com/ginuerzh/opencode" \
       org.opencontainers.image.base.name="ubuntu:26.04"
 
-# Same entrypoint shape as the official image.
-ENTRYPOINT ["opencode"]
+# Entrypoint installs optional runtime packages, then runs opencode (the
+# command can be overridden, e.g. `... serve --hostname 0.0.0.0`).
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["opencode"]
