@@ -4,6 +4,11 @@
 #
 #   -e INSTALL_PACKAGES="tcpdump|netcat-openbsd"   # apt packages ('|' or spaces)
 #
+# Invocation: with no arguments the container runs `opencode`; if the first
+# argument is not an executable on PATH (e.g. `serve`) it is treated as an
+# opencode subcommand, so `docker run IMAGE serve` behaves like the official
+# image's `opencode serve`.
+#
 # Packages are installed on every container start and are NOT persisted in the
 # image layer, so keep the list small and use a downstream image for anything
 # permanent.
@@ -22,6 +27,14 @@ if [ -n "${INSTALL_PACKAGES:-}" ]; then
   # shellcheck disable=SC2086
   as_root apt-get install -y --no-install-recommends ${pkgs}
   as_root rm -rf /var/lib/apt/lists/*
+fi
+
+# Preset: default to `opencode`, and accept a bare subcommand (`serve`, `run`,
+# ...) as shorthand for `opencode <subcommand>`.
+if [ "$#" -eq 0 ]; then
+  set -- opencode
+elif ! command -v "$1" >/dev/null 2>&1; then
+  set -- opencode "$@"
 fi
 
 exec "$@"

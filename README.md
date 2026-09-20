@@ -41,6 +41,12 @@ docker run -it --rm \
   ghcr.io/ginuerzh/opencode:latest
 ```
 
+Argument handling matches the official image: the entrypoint runs `opencode`,
+and a first argument that is not an executable on `PATH` is treated as a
+subcommand. So `... serve --port 4096` is shorthand for
+`... opencode serve --port 4096`, while real binaries (`bash`, `sh`, ...) still
+run as-is. For an interactive shell use `--entrypoint bash`.
+
 ## How it is built
 
 | | official | this image |
