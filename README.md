@@ -84,8 +84,6 @@ docker run -it --rm \
 
 - `INSTALL_PACKAGES` — apt packages, separated by `|` or spaces; installed on
   every container start, so they are **not** persisted in the image layer.
-- `INSTALL_PACKAGES_GO` — `go install` specs, space separated (needs a Go
-  toolchain in the image).
 
 For tools you always need, bake them into a downstream image instead.
 
