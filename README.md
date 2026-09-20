@@ -93,6 +93,29 @@ docker run -it --rm \
 
 For tools you always need, bake them into a downstream image instead.
 
+## Docker-in-Docker
+
+The image can run its own Docker daemon, with no host socket required:
+
+```bash
+docker run -it --rm --privileged \
+  -e INSTALL_PACKAGES="docker.io" \
+  ghcr.io/ginuerzh/opencode:latest
+```
+
+- Needs `--privileged` (or at least `CAP_SYS_ADMIN` + `CAP_NET_ADMIN`).
+- `docker.io` is in the Ubuntu archive and already depends on `iptables` and
+  `containerd`, so a single name is enough.
+- `apt-get install docker.io` only ships a **systemd unit**, and a container has
+  no init system, so the daemon would never start by itself. The entrypoint
+  therefore starts `dockerd` whenever a `dockerd` binary is present.
+  Set `ENABLE_DOCKER=false` to opt out.
+- Images/containers live in `${DOCKER_DATA_ROOT:-$HOME/.local/share/docker}`.
+  Mount `/root` as a volume to keep them across restarts.
+- The data-root must not be the container's own overlay rootfs: nested `overlay`
+  is rejected by the kernel, so the default under `$HOME` is deliberate (the
+  storage driver auto-detects, e.g. `overlayfs` on an xfs volume).
+
 ## Notes
 
 - The `baseline` x64 build avoids AVX2, matching upstream's default. Set

@@ -41,6 +41,31 @@ if [ -n "${INSTALL_PACKAGES:-}" ]; then
   as_root rm -rf /var/lib/apt/lists/*
 fi
 
+# Optional Docker-in-Docker daemon.
+#
+# `apt-get install docker.io` only ships a systemd unit, and a container has no
+# init system, so the daemon never starts on its own: start it here whenever a
+# dockerd binary is present (e.g. INSTALL_PACKAGES="docker.io"). The data-root
+# defaults under $HOME so images/containers survive restarts when it is a
+# volume; the storage driver is auto-detected.
+if [ "${ENABLE_DOCKER:-true}" != "false" ] && command -v dockerd >/dev/null 2>&1; then
+  data_root="${DOCKER_DATA_ROOT:-${HOME:-/root}/.local/share/docker}"
+  echo "[entrypoint] starting dockerd (data-root=${data_root})"
+  as_root mkdir -p "${data_root}"
+  if as_root docker info >/dev/null 2>&1; then
+    echo "[entrypoint] dockerd already running"
+  else
+    as_root sh -c 'setsid nohup dockerd --data-root="$1" --pidfile=/var/run/docker.pid >"$1/dockerd.log" 2>&1 </dev/null &' _ "${data_root}"
+    i=0
+    while [ ! -S /var/run/docker.sock ] && [ "$i" -lt 20 ]; do i=$((i + 1)); sleep 1; done
+    if as_root docker info >/dev/null 2>&1; then
+      echo "[entrypoint] dockerd is up (driver=$(as_root docker info -f '{{.Driver}}' 2>/dev/null))"
+    else
+      echo "[entrypoint] WARNING: dockerd not ready; see ${data_root}/dockerd.log" >&2
+    fi
+  fi
+fi
+
 # Preset: default to `opencode`, and accept a bare subcommand (`serve`, `run`,
 # ...) as shorthand for `opencode <subcommand>`.
 if [ "$#" -eq 0 ]; then
