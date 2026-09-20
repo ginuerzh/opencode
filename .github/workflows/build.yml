@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
   workflow_dispatch:
     inputs:
       opencode_version:
@@ -76,10 +77,15 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             OPENCODE_VERSION=${{ steps.ver.outputs.opencode_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # buildx attaches SLSA provenance/SBOM attestations by default (since
+          # v0.10). They push as extra manifests with platform "unknown/unknown",
+          # which breaks manifest resolution on arm64 in containerd/CRI. Disable.
+          provenance: false
+          sbom: false
