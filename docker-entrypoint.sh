@@ -49,9 +49,12 @@ fi
 # defaults under $HOME so images/containers survive restarts when it is a
 # volume; the storage driver is auto-detected.
 #
-# A pod is normally killed without letting the daemon shut down, so the previous
-# containerd may still be holding its bolt lock when the next container starts,
-# which makes the first attempt time out. Retry after clearing the leftovers.
+# A pod is normally killed without letting the daemon exit. Because every pod
+# has its own PID namespace, a leftover containerd from the previous pod keeps
+# holding the bolt lock where we can neither see nor kill it, and dockerd only
+# waits 10s before giving up ("failed to start containerd: timeout waiting for
+# containerd"). The lock clears by itself shortly after; retry in the
+# background so the retries never delay the main command.
 kill_by_name() {
   for p in /proc/[0-9]*; do
     [ -r "${p}/comm" ] || continue
@@ -63,31 +66,42 @@ kill_by_name() {
 
 if [ "${ENABLE_DOCKER:-true}" != "false" ] && command -v dockerd >/dev/null 2>&1; then
   data_root="${DOCKER_DATA_ROOT:-${HOME:-/root}/.local/share/docker}"
-  echo "[entrypoint] starting dockerd (data-root=${data_root})"
   as_root mkdir -p "${data_root}"
-  if as_root docker info >/dev/null 2>&1; then
+
+  docker_up() { as_root docker info >/dev/null 2>&1; }
+  start_dockerd() {
+    as_root sh -c 'setsid nohup dockerd --data-root="$1" --pidfile=/var/run/docker.pid >>"$1/dockerd.log" 2>&1 </dev/null &' _ "${data_root}"
+  }
+
+  if docker_up; then
     echo "[entrypoint] dockerd already running"
   else
-    attempt=0
-    while :; do
-      attempt=$((attempt + 1))
-      as_root sh -c 'setsid nohup dockerd --data-root="$1" --pidfile=/var/run/docker.pid >"$1/dockerd.log" 2>&1 </dev/null &' _ "${data_root}"
-      i=0
-      while [ ! -S /var/run/docker.sock ] && [ "$i" -lt 20 ]; do i=$((i + 1)); sleep 1; done
-      if as_root docker info >/dev/null 2>&1; then
-        echo "[entrypoint] dockerd is up (driver=$(as_root docker info -f '{{.Driver}}' 2>/dev/null))"
-        break
-      fi
-      if [ "${attempt}" -ge 3 ]; then
-        echo "[entrypoint] WARNING: dockerd not ready after ${attempt} attempts; see ${data_root}/dockerd.log" >&2
-        break
-      fi
-      echo "[entrypoint] dockerd attempt ${attempt} failed, retrying..." >&2
-      kill_by_name dockerd
-      kill_by_name containerd
-      as_root rm -f /var/run/docker.pid /var/run/docker.sock
-      sleep 5
-    done
+    echo "[entrypoint] starting dockerd (data-root=${data_root})"
+    : > "${data_root}/dockerd.log"
+    (
+      attempt=0
+      while [ "${attempt}" -lt 12 ]; do
+        attempt=$((attempt + 1))
+        echo "[entrypoint] dockerd attempt ${attempt}" >>"${data_root}/dockerd.log"
+        start_dockerd
+        i=0
+        while [ "${i}" -lt 20 ]; do
+          if docker_up; then break; fi
+          sleep 2
+          i=$((i + 2))
+        done
+        if docker_up; then
+          echo "[entrypoint] dockerd is up after attempt ${attempt} (driver=$(as_root docker info -f '{{.Driver}}' 2>/dev/null))"
+          exit 0
+        fi
+        echo "[entrypoint] dockerd attempt ${attempt} not ready, retrying..." >&2
+        kill_by_name dockerd
+        as_root rm -rf /var/run/docker
+        as_root rm -f /var/run/docker.pid /var/run/docker.sock
+        sleep 10
+      done
+      echo "[entrypoint] WARNING: dockerd failed to start after ${attempt} attempts; see ${data_root}/dockerd.log" >&2
+    ) &
   fi
 fi
 

@@ -110,10 +110,13 @@ docker run -it --rm --privileged \
   no init system, so the daemon would never start by itself. The entrypoint
   therefore starts `dockerd` whenever a `dockerd` binary is present.
   Set `ENABLE_DOCKER=false` to opt out.
-- A container is usually killed without letting the daemon shut down, so the
-  previous `containerd` can still hold its bolt lock on the next start and make
-  it time out. The entrypoint retries up to 3 times, clearing leftover
-  `dockerd`/`containerd` processes and stale sockets in between.
+- A pod is usually killed without letting the daemon shut down. Since every pod
+  has its own PID namespace, a leftover `containerd` from the previous pod keeps
+  holding the bolt lock where it can neither be seen nor killed, and `dockerd`
+  only waits 10s before giving up (`failed to start containerd: timeout waiting
+  for containerd`). The entrypoint therefore **retries in the background**
+  (up to 12 attempts, ~6 min) so the retries never delay the main command;
+  `docker` becomes available a few seconds after the container starts.
 - `nftables` is optional but recommended: without it dockerd logs
   `nft: executable file not found` when clearing rules (the iptables backend is
   still used, so networking works either way).
