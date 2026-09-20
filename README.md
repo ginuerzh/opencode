@@ -16,7 +16,7 @@ image. This repo builds exactly that: the official Dockerfile with
 ## Image
 
 ```
-docker pull ginuerzh/opencode:latest
+docker pull ghcr.io/ginuerzh/opencode:latest
 ```
 
 Platforms: `linux/amd64`, `linux/arm64`.
@@ -25,10 +25,10 @@ Platforms: `linux/amd64`, `linux/arm64`.
 
 ```bash
 # TUI / CLI
-docker run -it --rm -v "$PWD:/app" -w /app ginuerzh/opencode:latest
+docker run -it --rm -v "$PWD:/app" -w /app ghcr.io/ginuerzh/opencode:latest
 
 # headless server
-docker run -it --rm -p 4096:4096 ginuerzh/opencode:latest \
+docker run -it --rm -p 4096:4096 ghcr.io/ginuerzh/opencode:latest \
   serve --hostname 0.0.0.0 --port 4096
 ```
 
@@ -38,7 +38,7 @@ Persist state (config, skills, sessions):
 docker run -it --rm \
   -v opencode-config:/root/.config/opencode \
   -v opencode-data:/root/.local/share/opencode \
-  ginuerzh/opencode:latest
+  ghcr.io/ginuerzh/opencode:latest
 ```
 
 ## How it is built
@@ -57,14 +57,14 @@ required at runtime.
 
 - runs on push to `main`, on `v*` tags, manually (`workflow_dispatch`), and daily;
 - resolves the version from the tag / input, otherwise the latest `@opencode/cli`;
-- builds multi-arch and pushes `latest`, `<version>` and `sha-*` tags to Docker Hub.
+- builds multi-arch and pushes `latest`, `<version>` and `sha-*` tags to GHCR
+  (`ghcr.io/ginuerzh/opencode`).
 
-### Required repository secrets
+### Registry auth
 
-| secret | value |
-|---|---|
-| `DOCKERHUB_USERNAME` | Docker Hub username |
-| `DOCKERHUB_TOKEN` | Docker Hub access token (Read & Write) |
+Publishing uses the workflow's built-in `GITHUB_TOKEN` (`packages: write`), so
+**no secrets are required**. GHCR packages are created private by default —
+set the package visibility to public in the package settings for anonymous pulls.
 
 ### Build a specific version
 
